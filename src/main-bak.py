@@ -112,8 +112,8 @@ def paint_map(ax_0, dataset, levels):
     oz_map.drawcoastlines(color='black', linewidth=0.5)
     oz_map.fillcontinents(color='white', lake_color='dimgray', zorder=0)
     # draw parallels and meridians.
-    oz_map.drawparallels(np.arange(-80, 90, 5), color='grey', labels=[1, 0, 0, 0])
-    oz_map.drawmeridians(np.arange(0, 360, 5), color='grey', labels=[0, 0, 0, 1])
+    #oz_map.drawparallels(np.arange(-80, 90, 10), color='grey', labels=[1, 0, 0, 0])
+    #oz_map.drawmeridians(np.arange(0, 360, 10), color='grey', labels=[0, 0, 0, 1])
 
     lx, ly, zi = down_sample(oz_map, dataset['lon'], dataset['lat'], dataset['data'], 0.05)
     x, y = oz_map(lx, ly)
@@ -123,23 +123,49 @@ def paint_map(ax_0, dataset, levels):
     bio_file = os.path.splitext(SHAPEPATH)[0]
     sf = shapefile.Reader(bio_file)
 
-    for shape_rec in sf.shapeRecords():
-        vertices = []
-        codes = []
-        pts = shape_rec.shape.points
-        prt = list(shape_rec.shape.parts) + [len(pts)]
-        for i in range(len(prt) - 1):
-            for j in range(prt[i], prt[i+1]):
-                vertices.append((pts[j][0], pts[j][1]))
-            codes += [Path.MOVETO]
-            codes += [Path.LINETO] * (prt[i+1] - prt[i] -2)
-            codes += [Path.CLOSEPOLY]
-        clip = PathPatch(Path(vertices, codes), edgecolor='k', facecolor=None, transform=ax_0.transData)
+    verts = [
+        (130, -30), # left, bottom
+        (130, -20), # left, top
+        (140, -20), # right, top
+        (140, -30), # right, bottom
+        (130, -30) # ignored
+        ]
+
+    codes = [Path.MOVETO,
+            Path.LINETO,
+            Path.LINETO,
+            Path.LINETO,
+            Path.CLOSEPOLY
+            ]
+
+    path = Path(verts, codes)
+    print(path)
+    patch = PathPatch(path, transform=ax_0.transData)
+
+
+#    shp_info = oz_map.readshapefile(os.path.splitext(SHAPEPATH)[0], 'savanna', drawbounds=True)
+#    #print(shp_info[-1]._paths[0].vertices)
+#    paths = []
+#    for line in shp_info[-1]._paths:
+#        moves = len(line.vertices) - 2
+#        my_codes = [Path.MOVETO] + [Path.LINETO]*moves + [Path.CLOSEPOLY]
+#        my_verts = [(vx, vy) for (vx, vy) in line.vertices]
+#        paths.append(Path(line.vertices, my_codes))
+#
+#    print(paths[0])
+#    coll = PatchCollection(paths, linewidths=1, facecolors='pink', zorder=2)
+#    ax_0.add_collection(patch)
+
+#    for shape in oz_map.savanna:
+#        print(len(shape))
+#        patches.append(Polygon(np.array(shape), True))
+
+    #ax_0.add_collection(PatchCollection(poly, facecolor='m', edgecolor='k', linewidths=1., zorder=2))
 
     # Rasterize the contour collections
-    plt.gca().add_patch(clip)
+#    plt.gca().add_patch(patch)
     for contour in cs.collections:
-        contour.set_clip_path(clip)
+        contour.set_clip_path(patch)
         #contour.set_rasterized(True)
 
     return None
@@ -166,7 +192,7 @@ def plot_map():
     subaxs = plt.subplot(111)
 
     #subaxs[0].set_title("Temperature")
-    map1 = paint_map(subaxs, tair, np.linspace(20, 32, 100))
+    map1 = paint_map(subaxs, tair, np.arange(0, 32, 1))
 #    map1 = paint_map(subaxs[0], tair, max_val=32)
 #    bar1 = plt.colorbar(map1)
 #    bar1.ax.set_xlabel('$\degree$C')
@@ -184,8 +210,8 @@ if __name__ == '__main__':
     DATAPATH = os.path.expanduser("~/Work/Research_Work/Climatologies/ANUCLIM/mean30yr/")
     SHAPEPATH = os.path.expanduser("~/Savanna/Data/GiS/Savanna-Boundary-crc-g/crc-g.shp")
 
-    MAPCOLOR = 'GnBu'
-    #MAPCOLOR = 'jet'
+    #MAPCOLOR = 'GnBu'
+    MAPCOLOR = 'jet'
 
     latNorth = -5
     latSouth = -30
@@ -217,42 +243,4 @@ if __name__ == '__main__':
 #
 #    print(type(clip))
 #    return 1
-
-#    verts = [
-#        (130, -30), # left, bottom
-#        (130, -20), # left, top
-#        (140, -20), # right, top
-#        (140, -30), # right, bottom
-#        (130, -30) # ignored
-#        ]
 #
-#    codes = [Path.MOVETO,
-#            Path.LINETO,
-#            Path.LINETO,
-#            Path.LINETO,
-#            Path.CLOSEPOLY
-#            ]
-#
-#    path = Path(verts, codes)
-#    print(path)
-#    patch = PathPatch(path, transform=ax_0.transData)
-##    shp_info = oz_map.readshapefile(os.path.splitext(SHAPEPATH)[0], 'savanna', drawbounds=True)
-#    #print(shp_info[-1]._paths[0].vertices)
-#    paths = []
-#    for line in shp_info[-1]._paths:
-#        moves = len(line.vertices) - 2
-#        my_codes = [Path.MOVETO] + [Path.LINETO]*moves + [Path.CLOSEPOLY]
-#        my_verts = [(vx, vy) for (vx, vy) in line.vertices]
-#        paths.append(Path(line.vertices, my_codes))
-#
-#    print(paths[0])
-#    coll = PatchCollection(paths, linewidths=1, facecolors='pink', zorder=2)
-#    ax_0.add_collection(patch)
-
-#    for shape in oz_map.savanna:
-#        print(len(shape))
-#        patches.append(Polygon(np.array(shape), True))
-
-    #ax_0.add_collection(PatchCollection(poly, facecolor='m', edgecolor='k', linewidths=1., zorder=2))
-
-
