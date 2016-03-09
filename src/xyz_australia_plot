@@ -16,6 +16,7 @@ import datetime, time
 import os, re
 
 import fiona
+import ipdb
 
 
 __author__ = 'Rhys Whitley'
@@ -113,6 +114,8 @@ def define_clipping(_shapePath, *args, **kwargs):
     # flatten 2D list
     vert_1Dlist = list_flat(vert_2Dlist)
 
+    ipdb.set_trace()
+
     # define the path by which the lines of the polygon are drawn
     code_2Dlist = [create_codes(len(vl)) for vl in vert_2Dlist]
     # flatten 2D list
@@ -178,7 +181,7 @@ def paint_map(ax_0, dataset, levels):
 
     # draw gridded data onto the map canvas
     lx, ly, zi = grid_resample(oz_map, dataset['lon'], dataset['lat'], \
-                               dataset['data'], res=0.05)
+                               dataset['data'], proj_res=0.05)
     x, y = oz_map(lx, ly)
     cs = oz_map.contourf(x, y, zi, levels, cmap=get_cmap(MAPCOLOR, 100))
 
