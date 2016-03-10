@@ -1,22 +1,21 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2.7
+
+import os, re
+import numpy as np
+import pandas as pd
+import datetime, time
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from scipy.interpolate import griddata
 from mpl_toolkits.basemap import Basemap
+from shapely.geometry import shape, MultiPolygon
 from matplotlib.cm import get_cmap
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
-
-from shapely.geometry import shape, Point, Polygon, MultiPoint, MultiPolygon
-
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import pandas as pd
-import numpy as np
-import datetime, time
-import os, re
+from matplotlib.colors import SymLogNorm #PowerNorm
 
 import fiona
-import ipdb
 
 
 __author__ = 'Rhys Whitley'
@@ -64,7 +63,7 @@ def import_data(fname, doSum=False):
         id_clim[id_clim < -999.] = -999.
 
     # return to user as a dict
-    return pd.DataFrame({'lon':id_lons, 'lat':id_lats, 'data':id_clim})
+    return {'lon':id_lons, 'lat':id_lats, 'data':id_clim}
 
 def grid_resample(mapObj, _lons, _lats, _data, proj_res=0.05):
     """
@@ -114,8 +113,6 @@ def define_clipping(_shapePath, *args, **kwargs):
     # flatten 2D list
     vert_1Dlist = list_flat(vert_2Dlist)
 
-    ipdb.set_trace()
-
     # define the path by which the lines of the polygon are drawn
     code_2Dlist = [create_codes(len(vl)) for vl in vert_2Dlist]
     # flatten 2D list
@@ -128,7 +125,7 @@ def define_clipping(_shapePath, *args, **kwargs):
     mpoly = MultiPolygon([shape(vl["geometry"]) for vl in fshape])
 
     # return to user
-    return {'patch': clip, 'polygon': mpoly}
+    return {'clip': clip, 'poly': mpoly}
 
 def list_flat(List2D):
     """Flattens a 2D list"""
@@ -143,7 +140,7 @@ def create_codes(plen):
     """
     return [Path.MOVETO] + [Path.LINETO]*(plen-2) + [Path.CLOSEPOLY]
 
-def paint_map(ax_0, dataset, levels):
+def make_map(ax_0, dataset, title, cticks, **kargs):
     """
     Creates a plot canvas using basemap to visualise geospatial data, which is
     passed to this function as 'dataset'. Extents of the map are based on the
@@ -170,32 +167,38 @@ def paint_map(ax_0, dataset, levels):
                      resolution='i', projection='cyl', \
                      lat_0=latNorth, lon_0=lon_0, ax=ax_0)
 
-    # draw spatial extras to denote land and sea
-    oz_map.drawmapboundary(fill_color='dimgray')
-    oz_map.drawcoastlines(color='black', linewidth=0.5)
-    oz_map.fillcontinents(color='lightgray', lake_color='dimgray', zorder=0)
+    #import ipdb; ipdb.set_trace()
 
-    # draw parallels and meridians.
-    oz_map.drawparallels(np.arange(-80, 90, 5), color='grey', labels=[1, 0, 0, 0])
+    # draw spatial extras to denote land and sea
+    sea_color = 'white'
+    oz_map.drawmapboundary(fill_color=sea_color)
+    oz_map.drawcoastlines(color='black', linewidth=0.5)
+    oz_map.fillcontinents(color='lightgray', lake_color=sea_color, zorder=0)
+    oz_map.drawparallels(np.arange(-90, 90, 5), color='grey', labels=[1, 0, 0, 0])
     oz_map.drawmeridians(np.arange(0, 360, 5), color='grey', labels=[0, 0, 0, 1])
 
     # draw gridded data onto the map canvas
     lx, ly, zi = grid_resample(oz_map, dataset['lon'], dataset['lat'], \
                                dataset['data'], proj_res=0.05)
     x, y = oz_map(lx, ly)
-    cs = oz_map.contourf(x, y, zi, levels, cmap=get_cmap(MAPCOLOR, 100))
+    cs = oz_map.contourf(x, y, zi, **kargs)
+    # add a colorbar
+    cbar = oz_map.colorbar(cs, location='right', pad="2%", size="2%")
+    cbar.set_label(dataset["units"])
+    cbar.set_ticks(cticks)
+
+    # Title
+    ax_0.set_title(title, fontsize=14)
 
     # import savanna bioregion polygon and create a clipping region
     sav_geom = define_clipping(SHAPEPATH, transform=ax_0.transData)
 
     # Clip and Rasterize the contour collections
     for contour in cs.collections:
-        contour.set_clip_path(sav_geom['patch'])
+        contour.set_clip_path(sav_geom['clip'])
         contour.set_rasterized(True)
 
-    return oz_map
-
-def plot_map():
+def main():
     """
     Top level function that draws the final figure: could be one or
     multiple maps.
@@ -204,27 +207,34 @@ def plot_map():
     """
 
     tair = import_data("anuclim_5km_mat.csv", doSum=False)
-    #rain = import_data("anuclim_5km_ppt.csv", doSum=True)
+    rain = import_data("anuclim_5km_ppt.csv", doSum=True)
 
-    fig = plt.figure(figsize=(12, 9), frameon=False)
+    tair["units"] = "degrees Celsius"
+    rain["units"] = "mm/year"
+
+    fig = plt.figure(figsize=(10, 9), frameon=False)
     fig.add_axes([0, 0, 1.0, 1.0])
-#    n_plots = 2
-#    grid = gridspec.GridSpec(n_plots, 1)
-#    subaxs = [plt.subplot(grid[i]) for i in range(n_plots)]
-    subaxs = plt.subplot(111)
 
-    #subaxs[0].set_title("Temperature")
-    map1 = paint_map(subaxs, tair, np.linspace(20, 32, 100))
-#    map1 = paint_map(subaxs[0], tair, max_val=32)
-#    bar1 = plt.colorbar(map1)
-#    bar1.ax.set_xlabel('$\degree$C')
+    n_plots = 2
+    grid = gridspec.GridSpec(n_plots, 1)
+    subaxs = [plt.subplot(grid[i]) for i in range(n_plots)]
 
-#    subaxs[1].set_title("Rainfall")
-#    map2 = paint_map(subaxs[1], rain, max_val=4100)
-#    bar2 = plt.colorbar(map2)
-#    bar2.ax.set_xlabel('mm')
+    make_map(subaxs[0], tair, \
+             levels=np.arange(15, 32, 0.5), \
+             cticks=np.arange(15, 32, 2.5), \
+             cmap=get_cmap(MAPCOLOR), \
+             title="Australian Savanna \\\\ Mean Annual Temperature (1970-2000)")
 
-    plt.show()
+    make_map(subaxs[1], rain, \
+             levels=np.logspace(2, 3.6, 100), \
+             cticks=[100, 500, 1000, 1500, 2000, 3000, 4000], \
+             cmap=get_cmap(MAPCOLOR), \
+             norm=SymLogNorm(linthresh=0.3, linscale=0.03), \
+             #norm=PowerNorm(gamma=0.5), \
+             title="Australian Savanna \\\\ Annual Precipitation (1970-2000)")
+
+
+    plt.savefig(SAVEPATH)
 
 
 if __name__ == '__main__':
@@ -232,45 +242,15 @@ if __name__ == '__main__':
     DATAPATH = os.path.expanduser("~/Work/Research_Work/Climatologies/ANUCLIM/mean30yr/")
     SHAPEPATH = os.path.expanduser("~/Savanna/Data/GiS/Savanna-Boundary-crc-g/crc-g.shp")
 
-    MAPCOLOR = 'GnBu'
-    #MAPCOLOR = 'Viridis' # need to register
+    SAVEPATH = os.path.expanduser(("~/Work/Research_Work/Working_Publications/Savannas/SavReview/"
+                                   "figures/Fig2_aust_sav_bioreg.pdf"))
 
-    latNorth = -5
-    latSouth = -30
+    MAPCOLOR = 'viridis'
+
+    latNorth = -8
+    latSouth = -28
     lonWest = 110
     lonEast = 155
 
-    plot_map()
+    main()
 
-
-# JUNK BELOW
-
-#def shape_to_Patch(shape_obj):
-#    """
-#    This is a temporary solution to create a Patch object that is used to clip
-#    the Basemap object for plotting data bounded by a shapefile.
-#    """
-#    for shape_rec in shape_obj.shapeRecords():
-#        vertices = []
-#        codes = []
-#        pts = shape_rec.shape.points
-#        prt = list(shape_rec.shape.parts) + [len(pts)]
-#        for i in range(len(prt) - 1):
-#            for j in range(prt[i], prt[i+1]):
-#                vertices.append((pts[j][0], pts[j][1]))
-#            codes += [Path.MOVETO]
-#            codes += [Path.LINETO] * (prt[i+1] - prt[i] -2)
-#            codes += [Path.CLOSEPOLY]
-#
-#        clip = PathPatch(Path(vertices, codes), edgecolor='k', facecolor=None, transform=ax_0.transData)
-#
-#        return clip
-#
-#    print(zi)
-#    mask = np.zeros((len(x), len(y)))
-#    for i, p_lon in enumerate(x):
-#        for j, p_lat in enumerate(y):
-#            test = sav_geom['polygon'].contains(Point(x, y))
-#            if test is True:
-#                mask[i, j] = 1
-#
