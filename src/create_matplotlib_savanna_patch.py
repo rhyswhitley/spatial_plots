@@ -3,6 +3,7 @@
 import os
 import pickle
 from matplotlib.path import Path
+from shapely.geometry import Polygon, MultiPolygon
 
 import fiona
 
@@ -36,7 +37,7 @@ def define_clipping(_shapePath):
     #clip = PathPatch(part1, *args, **kwargs)
 
     # create a multi-polygon object using the same list of coordinates
-    #mpoly = MultiPolygon([shape(vl["geometry"]) for vl in fshape])
+    #mpoly = Polygon(vert_2Dlist)
 
     x_low, y_low = map(min, zip(*vert_1Dlist))
     x_high, y_high = map(max, zip(*vert_1Dlist))
@@ -45,7 +46,7 @@ def define_clipping(_shapePath):
     extent = {'lon':[x_low, x_high], 'lat':[y_low, y_high]}
 
     # return to user
-    return {'clip': clip, 'extent': extent}
+    return {'clip': clip, 'extent': extent, 'poly':vert_2Dlist}
 
 # --------------------------------------------------------------------------------
 
